@@ -1,0 +1,77 @@
+Les concepts de Kafka expliqués simplement
+Imagine que tu crées une application de stream processing (traitement en flux continu) pour gérer la régulation des paiements, des commandes et de l'inventaire dans une architecture microservices.
+Problème classique avec une architecture microservices "naïve" (tight coupling) :
+
+Les microservices communiquent de manière synchrone (via HTTP/REST par exemple).
+Exemple : si le service Payment plante ou est lent → le service Order attend indéfiniment → tout le processus de commande gèle.
+Si un service tombe, les autres services qui en dépendent sont bloqués.
+Tu risques de perdre des données (surtout pour l’analytics) car tout repose sur des appels directs en temps réel.
+
+Solution : Kafka comme intermédiaire (middleware) → architecture événementielle (event-driven)
+Au lieu que les services se parlent directement, ils passent tous par Kafka comme "boîte aux lettres" asynchrone.
+
+Les services continuent à travailler normalement sans attendre de réponse immédiate.
+Kafka découple complètement les services → loose coupling.
+On ne perd plus de données : tout est stocké durablement.
+
+Rôles principaux dans Kafka :
+
+Producer : un service qui crée un événement (ex. : "une commande a été passée") et l'envoie à Kafka.
+Event / Message : une structure simple (souvent JSON) contenant :
+Une clé (key) → ex. : ID commande
+Une valeur (value) → les données (détails commande)
+Des métadonnées : timestamp, nom du service producteur, etc.
+
+Topic : Kafka organise les événements dans des catégories appelées topics (comme des dossiers ou des files d'attente nommées).
+Exemple : topic "new-orders", "payments-processed", "inventory-updated"
+
+Consumer : un service qui s'abonne (subscribe) à un ou plusieurs topics et lit les événements quand ils arrivent.
+Exemple : le service "Order Processing" consomme le topic "new-orders".
+Le service "Inventory" consomme aussi "new-orders" pour décrémenter le stock.
+
+
+Kafka gère des millions d'événements par seconde grâce aux partitions
+Un topic est divisé en partitions (morceaux parallèles).
+Exemple concret :
+
+Topic "orders"
+3 partitions : une pour Europe, une pour US, une pour Afrique
+
+Avantages :
+
+Parallélisme → plusieurs consumers peuvent lire en même temps (un par partition).
+Si le trafic explose sur les commandes US (x100), tu peux :
+Augmenter le nombre de partitions (si besoin)
+Ajouter plus de consumers dans le même consumer group pour cette partition → scalabilité horizontale.
+
+
+Consumer Group :
+Un groupe de consumers qui partagent le travail d’un topic.
+→ Chaque partition est lue par un seul consumer du groupe (load balancing automatique).
+→ Si un consumer meurt → Kafka réassigne automatiquement ses partitions aux autres (rebalancing).
+Exemple concret : simulation d’un backend de food delivery (type Uber Eats / DoorDash)
+
+Démarrer Kafka localement (avec Docker)
+Utiliser une image Confluent ou Bitnami par exemple.
+
+Générer un Cluster ID (nécessaire en mode KRaft depuis Kafka 3.x+)Bashdocker run --rm confluentinc/cp-kafka:7.8.3 kafka-storage random-uuid(Copie le UUID généré)
+Écrire un petit programme Python (avec PyCharm)
+Producer : simule un client qui passe une commande → envoie un JSON dans le topic "new-orders"
+Consumer : simule un service backend (ex. Order Processing ou Inventory) → lit et affiche les commandes reçues
+Librairie recommandée : kafka-python ou confluent-kafka
+
+Kafka en production : cluster et KRaft
+
+Un cluster Kafka = plusieurs brokers (serveurs Kafka).
+Chaque broker stocke et gère des partitions.
+Un des brokers joue le rôle de controller (gère l’état du cluster, élit les leaders de partitions, réassigne en cas de panne).
+Anciennement : Kafka dépendait de ZooKeeper (un service externe) pour gérer les métadonnées et la coordination.
+Depuis Kafka 3.3+ → KRaft (Kafka Raft) : Kafka gère lui-même ses métadonnées grâce au protocole Raft → plus simple, plus rapide, plus fiable.
+→ ZooKeeper est déprécié et sera supprimé dans Kafka 4.0+.
+
+Configurations importantes (pour les débutants)
+
+advertised.listeners : indique aux clients (producers/consumers) comment se connecter au broker depuis l’extérieur (ex. docker, cloud…).
+log.dirs : dossier où Kafka stocke les données (les segments de logs des partitions) + métadonnées du controller en KRaft.
+
+En résumé : Kafka transforme ton système synchrone fragile en un système asynchrone, durable, scalable et tolérant aux pannes grâce aux événements.
