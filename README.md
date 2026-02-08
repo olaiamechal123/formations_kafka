@@ -97,5 +97,5 @@ docker-compose up -d
 
 
 
-[Des informations sur kafka](https://github.com/olaiamechal123/formations/blob/main/kafka%20formation.txt)
+
 
